@@ -3,6 +3,9 @@
 </br></br></br></br>
 
 نصب سریع (یک‌خطی)
+
+
+</br></br></br></br>
 sudo bash -c 'curl -sL https://raw.githubusercontent.com/webmehr/webmehr-top/main/install.sh | bash'
 
 
