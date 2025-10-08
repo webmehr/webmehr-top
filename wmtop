@@ -1,0 +1,89 @@
+#!/bin/bash
+# WEBMEHR TOP - Real-Time PHP-FPM Monitor
+# Version: 1.0.0
+# GitHub: https://github.com/webmehr/webmehr-top
+
+watch -n 2 --color '
+TOTAL_CORES=$(nproc)
+TOTAL_RAM=$(free -m | awk "/^Mem:/{print \$2}")
+USED_RAM=$(free -m | awk "/^Mem:/{print \$3}")
+FREE_RAM=$(free -m | awk "/^Mem:/{print \$4}")
+
+echo -e "\033[96m\033[1m╔════════════════════════════════════════════════════════════════════════════════╗\033[0m"
+echo -e "\033[96m\033[1m║                    🚀  WEBMEHR TOP  🚀                                        ║\033[0m"
+echo -e "\033[96m\033[1m║                   Real-Time PHP-FPM Monitor                                   ║\033[0m"
+echo -e "\033[96m\033[1m╚════════════════════════════════════════════════════════════════════════════════╝\033[0m"
+echo ""
+echo -e "\033[1m\033[97m╭────────────────────────────────────────────────────────────────────────────────╮\033[0m"
+printf "\033[1m\033[97m│\033[0m \033[95m⚡ CPU Cores:\033[0m \033[92m%-2s\033[0m \033[97m│\033[0m \033[94m💾 Total RAM:\033[0m \033[97m%5sM\033[0m \033[97m│\033[0m \033[93m📊 Used:\033[0m \033[93m%5sM\033[0m \033[97m│\033[0m \033[92m✓ Free:\033[0m \033[92m%5sM\033[0m \033[1m\033[97m│\033[0m\n" "$TOTAL_CORES" "$TOTAL_RAM" "$USED_RAM" "$FREE_RAM"
+echo -e "\033[1m\033[97m╰────────────────────────────────────────────────────────────────────────────────╯\033[0m"
+echo ""
+
+ps aux | grep "php-fpm: pool" | grep -v grep | awk -v cores="$TOTAL_CORES" -v total_ram="$TOTAL_RAM" "{
+    pool[\$1\" \"\$NF]++; 
+    cpu[\$1\" \"\$NF]+=\$3; 
+    mem[\$1\" \"\$NF]+=\$4; 
+    ram[\$1\" \"\$NF]+=\$6/1024;
+    total_cpu+=\$3;
+    total_mem+=\$4;
+    total_ram_used+=\$6/1024;
+    total_proc++;
+} END {
+    print \"  \033[1m\033[95m📊 Pool Summary:\033[0m\";
+    printf \"    \033[1m%-32s %6s %9s %9s %9s %13s %11s\033[0m\n\", \"Pool/User\", \"Proc\", \"CPU%\", \"MEM%\", \"RAM\", \"CPU/Core\", \"RAM%\";
+    print \"    \033[90m──────────────────────────────────────────────────────────────────────────────────────────────\033[0m\";
+    
+    n = 0;
+    for (p in pool) {
+        cpu_per_core = cpu[p] / cores;
+        ram_percent = (ram[p] / total_ram) * 100;
+        
+        if(cpu_per_core>=2 || ram_percent>=5) color=\"\033[91m\";
+        else if(cpu_per_core>=1 || ram_percent>=3) color=\"\033[93m\";
+        else if(cpu_per_core>=0.5 || ram_percent>=1) color=\"\033[96m\";
+        else color=\"\033[92m\";
+        
+        data[n] = sprintf(\"%s%-32s\033[0m \033[1m%6d %8.1f%% %8.1f%% %8dM   %10.2f%%  %9.2f%%\033[0m\", 
+            color, p, pool[p], cpu[p], mem[p], ram[p], cpu_per_core, ram_percent);
+        proc_count[n] = pool[p];
+        n++;
+    }
+    
+    for (i = 0; i < n-1; i++) {
+        for (j = 0; j < n-i-1; j++) {
+            if (proc_count[j] < proc_count[j+1]) {
+                temp = data[j];
+                data[j] = data[j+1];
+                data[j+1] = temp;
+                temp_proc = proc_count[j];
+                proc_count[j] = proc_count[j+1];
+                proc_count[j+1] = temp_proc;
+            }
+        }
+    }
+    
+    for (i = 0; i < n; i++) {
+        printf \"    %s\n\", data[i];
+    }
+    
+    print \"    \033[90m──────────────────────────────────────────────────────────────────────────────────────────────\033[0m\";
+    total_cpu_per_core = total_cpu / cores;
+    total_ram_percent = (total_ram_used / total_ram) * 100;
+    
+    if(total_cpu_per_core>=50 || total_ram_percent>=80) total_color=\"\033[91m\";
+    else if(total_cpu_per_core>=25 || total_ram_percent>=60) total_color=\"\033[93m\";
+    else if(total_cpu_per_core>=10 || total_ram_percent>=40) total_color=\"\033[96m\";
+    else total_color=\"\033[92m\";
+    
+    printf \"    %s\033[1m%-32s %6d %8.1f%% %8.1f%% %8dM   %10.2f%%  %9.2f%%\033[0m\n\", 
+        total_color, \"⚡ TOTAL\", total_proc, total_cpu, total_mem, total_ram_used, total_cpu_per_core, total_ram_percent
+}"
+
+echo ""
+echo -e "  \033[1m\033[94mLegend (based on CPU/Core %% or RAM %%):\033[0m"
+echo -e "    \033[92m●\033[0m Low      \033[90m(<0.5%% CPU/Core or <1%% RAM)\033[0m"
+echo -e "    \033[96m●\033[0m Normal   \033[90m(0.5-1%% CPU/Core or 1-3%% RAM)\033[0m"
+echo -e "    \033[93m●\033[0m Medium   \033[90m(1-2%% CPU/Core or 3-5%% RAM)\033[0m"
+echo -e "    \033[91m●\033[0m High     \033[90m(>2%% CPU/Core or >5%% RAM)\033[0m"
+echo -e "\033[90m════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════\033[0m"
+'
