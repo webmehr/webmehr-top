@@ -1,6 +1,6 @@
 #!/bin/bash
 # WEBMEHR TOP - Real-Time PHP-FPM Monitor
-# Version: 1.0.0
+# Version: 1.1.0
 # GitHub: https://github.com/webmehr/webmehr-top
 
 watch -n 2 --color '
@@ -8,6 +8,7 @@ TOTAL_CORES=$(nproc)
 TOTAL_RAM=$(free -m | awk "/^Mem:/{print \$2}")
 USED_RAM=$(free -m | awk "/^Mem:/{print \$3}")
 FREE_RAM=$(free -m | awk "/^Mem:/{print \$4}")
+LOAD_AVG=$(cat /proc/loadavg | awk "{print \$1, \$2, \$3}")
 
 echo -e "\033[96m\033[1m╔════════════════════════════════════════════════════════════════════════════════╗\033[0m"
 echo -e "\033[96m\033[1m║                    🚀  WEBMEHR TOP  🚀                                        ║\033[0m"
@@ -17,6 +18,8 @@ echo ""
 echo -e "\033[1m\033[97m╭────────────────────────────────────────────────────────────────────────────────╮\033[0m"
 printf "\033[1m\033[97m│\033[0m \033[95m⚡ CPU Cores:\033[0m \033[92m%-2s\033[0m \033[97m│\033[0m \033[94m💾 Total RAM:\033[0m \033[97m%5sM\033[0m \033[97m│\033[0m \033[93m📊 Used:\033[0m \033[93m%5sM\033[0m \033[97m│\033[0m \033[92m✓ Free:\033[0m \033[92m%5sM\033[0m \033[1m\033[97m│\033[0m\n" "$TOTAL_CORES" "$TOTAL_RAM" "$USED_RAM" "$FREE_RAM"
 echo -e "\033[1m\033[97m╰────────────────────────────────────────────────────────────────────────────────╯\033[0m"
+echo ""
+echo -e "  \033[1m\033[94m⚙️  Load Average (1m | 5m | 15m):\033[0m \033[93m$LOAD_AVG\033[0m"
 echo ""
 
 ps aux | grep "php-fpm: pool" | grep -v grep | awk -v cores="$TOTAL_CORES" -v total_ram="$TOTAL_RAM" "{
