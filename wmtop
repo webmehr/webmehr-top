@@ -1,6 +1,6 @@
 #!/bin/bash
 # WEBMEHR TOP - Real-Time PHP-FPM Monitor
-# Version: 1.1.0
+# Version: 1.2.0
 # GitHub: https://github.com/webmehr/webmehr-top
 
 watch -n 2 --color '
@@ -9,10 +9,29 @@ TOTAL_RAM=$(free -m | awk "/^Mem:/{print \$2}")
 USED_RAM=$(free -m | awk "/^Mem:/{print \$3}")
 FREE_RAM=$(free -m | awk "/^Mem:/{print \$4}")
 LOAD_AVG=$(cat /proc/loadavg | awk "{print \$1, \$2, \$3}")
+UPTIME=$(uptime -p | sed "s/up //")
+
+# محاسبه مصرف شبکه (eth0 یا ens*)
+IFACE=$(ip -o -4 route show to default | awk "{print \$5}")
+RX1=$(cat /sys/class/net/$IFACE/statistics/rx_bytes)
+TX1=$(cat /sys/class/net/$IFACE/statistics/tx_bytes)
+sleep 1
+RX2=$(cat /sys/class/net/$IFACE/statistics/rx_bytes)
+TX2=$(cat /sys/class/net/$IFACE/statistics/tx_bytes)
+RX_RATE=$(( (RX2 - RX1) / 1024 ))
+TX_RATE=$(( (TX2 - TX1) / 1024 ))
+
+# مصرف دیسک (فقط / و /home)
+DISK_ROOT=$(df -h / | awk "NR==2{print \$3\"/\"\$2\" (\"\$5\")\"}")
+DISK_HOME=$(df -h /home 2>/dev/null | awk "NR==2{print \$3\"/\"\$2\" (\"\$5\")\"}")
+[ -z "$DISK_HOME" ] && DISK_HOME="N/A"
+
+# هشدار رنگی برای RAM و CPU (بعداً در AWK چک هم می‌شود)
+RAM_PERCENT=$(( 100 * USED_RAM / TOTAL_RAM ))
 
 echo -e "\033[96m\033[1m╔════════════════════════════════════════════════════════════════════════════════╗\033[0m"
 echo -e "\033[96m\033[1m║                    🚀  WEBMEHR TOP  🚀                                        ║\033[0m"
-echo -e "\033[96m\033[1m║                   Real-Time PHP-FPM Monitor                                   ║\033[0m"
+echo -e "\033[96m\033[1m║          Real-Time PHP-FPM & System Resource Monitor v1.2.0                   ║\033[0m"
 echo -e "\033[96m\033[1m╚════════════════════════════════════════════════════════════════════════════════╝\033[0m"
 echo ""
 echo -e "\033[1m\033[97m╭────────────────────────────────────────────────────────────────────────────────╮\033[0m"
@@ -20,6 +39,9 @@ printf "\033[1m\033[97m│\033[0m \033[95m⚡ CPU Cores:\033[0m \033[92m%-2s\033
 echo -e "\033[1m\033[97m╰────────────────────────────────────────────────────────────────────────────────╯\033[0m"
 echo ""
 echo -e "  \033[1m\033[94m⚙️  Load Average (1m | 5m | 15m):\033[0m \033[93m$LOAD_AVG\033[0m"
+echo -e "  \033[1m\033[92m📡 NET $IFACE:\033[0m ↓${RX_RATE} KB/s ↑${TX_RATE} KB/s"
+echo -e "  \033[1m\033[96m💽 Disk /:\033[0m $DISK_ROOT   \033[96m|  /home:\033[0m $DISK_HOME"
+echo -e "  \033[1m\033[95m⏱️  Uptime:\033[0m $UPTIME"
 echo ""
 
 ps aux | grep "php-fpm: pool" | grep -v grep | awk -v cores="$TOTAL_CORES" -v total_ram="$TOTAL_RAM" "{
@@ -72,14 +94,14 @@ ps aux | grep "php-fpm: pool" | grep -v grep | awk -v cores="$TOTAL_CORES" -v to
     print \"    \033[90m──────────────────────────────────────────────────────────────────────────────────────────────\033[0m\";
     total_cpu_per_core = total_cpu / cores;
     total_ram_percent = (total_ram_used / total_ram) * 100;
-    
-    if(total_cpu_per_core>=50 || total_ram_percent>=80) total_color=\"\033[91m\";
-    else if(total_cpu_per_core>=25 || total_ram_percent>=60) total_color=\"\033[93m\";
-    else if(total_cpu_per_core>=10 || total_ram_percent>=40) total_color=\"\033[96m\";
+
+    # هشدار رنگی
+    if(total_cpu_per_core>=90 || total_ram_percent>=90) total_color=\"\033[101m\033[97m\"; # پس‌زمینه قرمز
+    else if(total_cpu_per_core>=70 || total_ram_percent>=80) total_color=\"\033[93m\";
     else total_color=\"\033[92m\";
     
     printf \"    %s\033[1m%-32s %6d %8.1f%% %8.1f%% %8dM   %10.2f%%  %9.2f%%\033[0m\n\", 
-        total_color, \"⚡ TOTAL\", total_proc, total_cpu, total_mem, total_ram_used, total_cpu_per_core, total_ram_percent
+        total_color, \"⚡ TOTAL\", total_proc, total_cpu, total_mem, total_ram_used, total_cpu_per_core, total_ram_percent;
 }"
 
 echo ""
